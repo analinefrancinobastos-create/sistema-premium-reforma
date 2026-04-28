@@ -514,9 +514,9 @@ elif menu == "Todos os gastos":
 
     df = pd.read_sql_query("SELECT * FROM gastos ORDER BY data DESC", conexao)
 
-    if df.empty:
+if df.empty:
         st.info("Nenhum gasto encontrado.")
-    else:
+else:
         st.dataframe(df, use_container_width=True)
 
 conexao.close()
