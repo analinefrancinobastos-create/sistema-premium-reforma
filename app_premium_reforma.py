@@ -281,6 +281,7 @@ else:
         saldo_pedreiro = valor_contratado - total_pago_pedreiro
 
          p1, p2, p3 = st.columns(3)
+         
          p1.metric("Valor contratado", f"R$ {valor_contratado:,.2f}")
          p2.metric("Pago ao pedreiro", f"R$ {total_pago_pedreiro:,.2f}")
          p3.metric("Saldo restante", f"R$ {saldo_pedreiro:,.2f}")
