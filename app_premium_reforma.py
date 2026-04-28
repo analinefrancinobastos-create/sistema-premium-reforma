@@ -502,13 +502,40 @@ elif menu == "Comprovantes":
             st.write(f"📌 Observação: {row['observacao']}")
 
             try:
-                with open(row["arquivo"], "rb") as file:
-                    st.download_button(
-                        label="📄 Baixar comprovante",
-                        data=file,
-                        file_name=row["arquivo"].split("/")[-1],
-                        mime="application/octet-stream"
-                    )
+                arquivo_path = row["arquivo"]
+
+col1, col2 = st.columns(2)
+
+with col1:
+    st.markdown(
+        f"""
+        <a href="{arquivo_path}" target="_blank">
+            <button style="
+                background-color:#262730;
+                color:white;
+                border:1px solid #555;
+                padding:10px 20px;
+                border-radius:8px;
+                cursor:pointer;
+            ">
+                📄 Visualizar comprovante
+            </button>
+        </a>
+        """,
+        unsafe_allow_html=True
+    )
+
+with col2:
+    try:
+        with open(arquivo_path, "rb") as file:
+            st.download_button(
+                label="⬇️ Baixar comprovante",
+                data=file,
+                file_name=arquivo_path.split("/")[-1],
+                mime="application/octet-stream"
+            )
+    except:
+        st.warning("Arquivo não encontrado.")
             except:
                 st.warning("Arquivo não encontrado.")
 
