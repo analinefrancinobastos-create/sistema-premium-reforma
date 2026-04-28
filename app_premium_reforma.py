@@ -203,28 +203,13 @@ elif menu == "Dashboard":
     else:
         df["data"] = pd.to_datetime(df["data"])
 
-        meses_disponiveis = sorted(df["data"].dt.strftime("%m/%Y").unique())
-        mes_selecionado = st.selectbox("Selecione o mês para análise", meses_disponiveis)
-
-        df_mes = df[df["data"].dt.strftime("%m/%Y") == mes_selecionado]
-
         total_gasto = df["valor"].sum()
-        total_pago_mes = df_mes[df_mes["status"] == "Pago"]["valor"].sum()
         total_pendente = df[df["status"] == "Pendente"]["valor"].sum()
 
-        col1, col2, col3 = st.columns(3)
-        col1.metric("💰 Total da obra", f"R$ {total_gasto:,.2f}")
-        col2.metric(f"✅ Pago em {mes_selecionado}", f"R$ {total_pago_mes:,.2f}")
-        col3.metric("⚠️ Total pendente", f"R$ {total_pendente:,.2f}")
-
-        st.divider()
-        st.subheader("💳 Parcelas por mês")
-
         parcelas = df[df["descricao"].str.contains("Parcelado: Sim", na=False)].copy()
+        lista_parcelas = []
 
-        if parcelas.empty:
-            st.info("Nenhuma compra parcelada cadastrada.")
-        else:
+        if not parcelas.empty:
             parcelas["valor_parcela"] = parcelas["descricao"].str.extract(
                 r"Valor parcela: R\$ ([0-9.]+)"
             )[0].astype(float)
@@ -232,8 +217,6 @@ elif menu == "Dashboard":
             parcelas["qtd_parcelas"] = parcelas["descricao"].str.extract(
                 r"Parcelas: ([0-9]+)x"
             )[0].astype(int)
-
-            lista_parcelas = []
 
             for _, row in parcelas.iterrows():
                 for i in range(int(row["qtd_parcelas"])):
@@ -243,19 +226,70 @@ elif menu == "Dashboard":
                         "Categoria": row["categoria"],
                         "Parcela": f"{i + 1}/{int(row['qtd_parcelas'])}",
                         "Mês": mes_parcela.strftime("%m/%Y"),
-                        "Valor da parcela": row["valor_parcela"]
+                        "Valor": row["valor_parcela"]
                     })
 
-            df_parcelas = pd.DataFrame(lista_parcelas)
+        df_parcelas = pd.DataFrame(lista_parcelas)
 
-            meses_parcelas = sorted(df_parcelas["Mês"].unique())
-            mes_parcela_selecionado = st.selectbox("Ver parcelas do mês", meses_parcelas)
+        gastos_avista = df[
+            ~df["descricao"].str.contains("Parcelado: Sim", na=False)
+        ].copy()
 
-            df_parcelas_mes = df_parcelas[df_parcelas["Mês"] == mes_parcela_selecionado]
+        gastos_avista["Mês"] = gastos_avista["data"].dt.strftime("%m/%Y")
+        gastos_avista["Valor"] = gastos_avista["valor"]
+        gastos_avista["Descrição"] = gastos_avista["descricao"]
+        gastos_avista["Parcela"] = "À vista"
+
+        meses_gastos = list(gastos_avista["Mês"].unique())
+
+        if not df_parcelas.empty:
+            meses_parcelas = list(df_parcelas["Mês"].unique())
+        else:
+            meses_parcelas = []
+
+        meses_disponiveis = sorted(set(meses_gastos + meses_parcelas))
+
+        mes_selecionado = st.selectbox(
+            "Selecione o mês para análise",
+            meses_disponiveis
+        )
+
+        total_avista_mes = gastos_avista[
+            gastos_avista["Mês"] == mes_selecionado
+        ]["Valor"].sum()
+
+        if not df_parcelas.empty:
+            total_parcelas_mes = df_parcelas[
+                df_parcelas["Mês"] == mes_selecionado
+            ]["Valor"].sum()
+        else:
+            total_parcelas_mes = 0
+
+        total_pago_mes = total_avista_mes + total_parcelas_mes
+
+        col1, col2, col3 = st.columns(3)
+        col1.metric("💰 Total da obra", f"R$ {total_gasto:,.2f}")
+        col2.metric(f"✅ Pago em {mes_selecionado}", f"R$ {total_pago_mes:,.2f}")
+        col3.metric("⚠️ Total pendente", f"R$ {total_pendente:,.2f}")
+
+        st.divider()
+        st.subheader("💳 Parcelas por mês")
+
+        if df_parcelas.empty:
+            st.info("Nenhuma compra parcelada cadastrada.")
+        else:
+            mes_parcela_selecionado = st.selectbox(
+                "Ver parcelas do mês",
+                sorted(df_parcelas["Mês"].unique())
+            )
+
+            df_parcelas_mes = df_parcelas[
+                df_parcelas["Mês"] == mes_parcela_selecionado
+            ]
 
             st.metric(
                 f"Total de parcelas em {mes_parcela_selecionado}",
-                f"R$ {df_parcelas_mes['Valor da parcela'].sum():,.2f}"
+                f"R$ {df_parcelas_mes['Valor'].sum():,.2f}"
             )
 
             st.dataframe(df_parcelas_mes, use_container_width=True)
@@ -278,27 +312,7 @@ elif menu == "Dashboard":
         p1.metric("Valor contratado", f"R$ {valor_contratado:,.2f}")
         p2.metric("Pago ao pedreiro", f"R$ {total_pago_pedreiro:,.2f}")
         p3.metric("Saldo restante", f"R$ {saldo_pedreiro:,.2f}")
-
-        resumo_pedreiro = df_contratos.copy()
-
-        if not df_pagamentos.empty:
-            total_por_contrato = df_pagamentos.groupby("contrato_id")["valor_pago"].sum().reset_index()
-            resumo_pedreiro = resumo_pedreiro.merge(
-                total_por_contrato,
-                left_on="id",
-                right_on="contrato_id",
-                how="left"
-            )
-            resumo_pedreiro["valor_pago"] = resumo_pedreiro["valor_pago"].fillna(0)
-        else:
-            resumo_pedreiro["valor_pago"] = 0
-
-        resumo_pedreiro["saldo_restante"] = resumo_pedreiro["valor_contratado"] - resumo_pedreiro["valor_pago"]
-
-        st.dataframe(
-            resumo_pedreiro[["nome", "servico", "valor_contratado", "valor_pago", "saldo_restante"]],
-            use_container_width=True
-        )
+        
 elif menu == "Controle do pedreiro":
     st.header("👷 Controle do Pedreiro")
 
