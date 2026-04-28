@@ -488,7 +488,7 @@ elif menu == "Comprovantes":
 
     df_comprovantes = pd.read_sql_query("SELECT * FROM comprovantes ORDER BY data DESC", conexao)
 
-    if df_comprovantes.empty:
+if df_comprovantes.empty:
     st.info("Nenhum comprovante cadastrado ainda.")
 else:
     for _, row in df_comprovantes.iterrows():
