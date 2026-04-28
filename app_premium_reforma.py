@@ -80,7 +80,6 @@ menu = st.sidebar.radio(
     "Cadastrar gasto",
     "Controle do pedreiro",
     "Comprovantes",
-    "Resumo geral",
     "Todos os gastos"
 ]
 )
@@ -181,25 +180,87 @@ elif menu == "Dashboard":
     st.header("📊 Dashboard Financeiro")
 
     df = pd.read_sql_query("SELECT * FROM gastos", conexao)
+    df_pedreiro = pd.read_sql_query("SELECT * FROM pedreiros", conexao)
 
     if df.empty:
         st.info("Nenhum gasto cadastrado ainda.")
     else:
+        df["data"] = pd.to_datetime(df["data"])
+
         total_gasto = df["valor"].sum()
         total_pago = df[df["status"] == "Pago"]["valor"].sum()
         total_pendente = df[df["status"] == "Pendente"]["valor"].sum()
 
         col1, col2, col3 = st.columns(3)
+        col1.metric("💰 Total da obra", f"R$ {total_gasto:,.2f}")
+        col2.metric("✅ Total pago", f"R$ {total_pago:,.2f}")
+        col3.metric("⚠️ Total pendente", f"R$ {total_pendente:,.2f}")
 
-        col1.metric("Total da obra", f"R$ {total_gasto:,.2f}")
-        col2.metric("Total pago", f"R$ {total_pago:,.2f}")
-        col3.metric("Total pendente", f"R$ {total_pendente:,.2f}")
+        st.divider()
 
-        resumo = df.groupby("categoria")["valor"].sum().reset_index()
+        st.subheader("💳 Parcelas do próximo mês")
 
-        st.subheader("Gastos por categoria")
-        st.dataframe(resumo, use_container_width=True)
-        st.bar_chart(resumo.set_index("categoria"))
+        parcelas = df[
+            df["descricao"].str.contains("Parcelado: Sim", na=False)
+        ].copy()
+
+        if parcelas.empty:
+            st.info("Nenhuma compra parcelada cadastrada.")
+        else:
+            parcelas["valor_parcela"] = parcelas["descricao"].str.extract(
+                r"Valor parcela: R\$ ([0-9.]+)"
+            )[0].astype(float)
+
+            proximo_mes = pd.Timestamp.today() + pd.DateOffset(months=1)
+            parcelas["mes_referencia"] = proximo_mes.strftime("%m/%Y")
+
+            total_parcelas_proximo_mes = parcelas["valor_parcela"].sum()
+
+            st.metric(
+                "Total previsto em parcelas no próximo mês",
+                f"R$ {total_parcelas_proximo_mes:,.2f}"
+            )
+
+            st.dataframe(
+                parcelas[["data", "descricao", "categoria", "valor_parcela", "mes_referencia"]],
+                use_container_width=True
+            )
+
+        st.divider()
+
+        st.subheader("👷 Resumo do Pedreiro")
+
+        if df_pedreiro.empty:
+            st.info("Nenhum pagamento de pedreiro cadastrado ainda.")
+        else:
+            valor_contratado = df_pedreiro["valor_combinado"].max()
+            total_pago_pedreiro = df_pedreiro["valor_pago"].sum()
+            saldo_pedreiro = valor_contratado - total_pago_pedreiro
+
+            p1, p2, p3 = st.columns(3)
+            p1.metric("Valor contratado", f"R$ {valor_contratado:,.2f}")
+            p2.metric("Pago ao pedreiro", f"R$ {total_pago_pedreiro:,.2f}")
+            p3.metric("Saldo restante", f"R$ {saldo_pedreiro:,.2f}")
+
+            st.dataframe(df_pedreiro, use_container_width=True)
+
+        st.divider()
+
+        st.subheader("📂 Gastos por categoria")
+        resumo_categoria = df.groupby("categoria")["valor"].sum().reset_index()
+        st.dataframe(resumo_categoria, use_container_width=True)
+        st.bar_chart(resumo_categoria.set_index("categoria"))
+
+        st.subheader("💳 Gastos por forma de pagamento")
+        resumo_pagamento = df.groupby("forma_pagamento")["valor"].sum().reset_index()
+        st.dataframe(resumo_pagamento, use_container_width=True)
+        st.bar_chart(resumo_pagamento.set_index("forma_pagamento"))
+
+        st.subheader("📅 Gastos por mês")
+        df["mes"] = df["data"].dt.strftime("%m/%Y")
+        resumo_mes = df.groupby("mes")["valor"].sum().reset_index()
+        st.dataframe(resumo_mes, use_container_width=True)
+        st.line_chart(resumo_mes.set_index("mes"))
 elif menu == "Controle do pedreiro":
     st.header("👷 Controle do Pedreiro por Parcelas")
 
