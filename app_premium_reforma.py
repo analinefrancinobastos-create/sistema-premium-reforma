@@ -208,45 +208,63 @@ elif menu == "Dashboard":
         st.info("Nenhum gasto cadastrado ainda.")
     else:
         df["data"] = pd.to_datetime(df["data"])
+        meses_disponiveis = sorted(df["data"].dt.strftime("%m/%Y").unique())
+        mes_selecionado = st.selectbox("Selecione o mês para análise", meses_disponiveis)
+
+        df_mes = df[df["data"].dt.strftime("%m/%Y") == mes_selecionado]
 
         total_gasto = df["valor"].sum()
-        total_pago = df[df["status"] == "Pago"]["valor"].sum()
+        total_pago_mes = df_mes[df_mes["status"] == "Pago"]["valor"].sum()
         total_pendente = df[df["status"] == "Pendente"]["valor"].sum()
 
         col1, col2, col3 = st.columns(3)
         col1.metric("💰 Total da obra", f"R$ {total_gasto:,.2f}")
-        col2.metric("✅ Total pago", f"R$ {total_pago:,.2f}")
+        col2.metric(f"✅ Pago em {mes_selecionado}", f"R$ {total_pago_mes:,.2f}")
         col3.metric("⚠️ Total pendente", f"R$ {total_pendente:,.2f}")
 
         st.divider()
 
-        st.subheader("💳 Parcelas do próximo mês")
+        st.subheader("💳 Parcelas por mês")
 
-        parcelas = df[
-            df["descricao"].str.contains("Parcelado: Sim", na=False)
-        ].copy()
+parcelas = df[df["descricao"].str.contains("Parcelado: Sim", na=False)].copy()
 
-        if parcelas.empty:
-            st.info("Nenhuma compra parcelada cadastrada.")
-        else:
-            parcelas["valor_parcela"] = parcelas["descricao"].str.extract(
-                r"Valor parcela: R\$ ([0-9.]+)"
-            )[0].astype(float)
+if parcelas.empty:
+    st.info("Nenhuma compra parcelada cadastrada.")
+else:
+    parcelas["valor_parcela"] = parcelas["descricao"].str.extract(
+        r"Valor parcela: R\$ ([0-9.]+)"
+    )[0].astype(float)
 
-            proximo_mes = pd.Timestamp.today() + pd.DateOffset(months=1)
-            parcelas["mes_referencia"] = proximo_mes.strftime("%m/%Y")
+    parcelas["qtd_parcelas"] = parcelas["descricao"].str.extract(
+        r"Parcelas: ([0-9]+)x"
+    )[0].astype(int)
 
-            total_parcelas_proximo_mes = parcelas["valor_parcela"].sum()
+    lista_parcelas = []
 
-            st.metric(
-                "Total previsto em parcelas no próximo mês",
-                f"R$ {total_parcelas_proximo_mes:,.2f}"
-            )
+    for _, row in parcelas.iterrows():
+        for i in range(row["qtd_parcelas"]):
+            mes_parcela = row["data"] + pd.DateOffset(months=i)
+            lista_parcelas.append({
+                "Descrição": row["descricao"].split("|")[0],
+                "Categoria": row["categoria"],
+                "Parcela": f"{i + 1}/{row['qtd_parcelas']}",
+                "Mês": mes_parcela.strftime("%m/%Y"),
+                "Valor da parcela": row["valor_parcela"]
+            })
 
-            st.dataframe(
-                parcelas[["data", "descricao", "categoria", "valor_parcela", "mes_referencia"]],
-                use_container_width=True
-            )
+    df_parcelas = pd.DataFrame(lista_parcelas)
+
+    meses_parcelas = sorted(df_parcelas["Mês"].unique())
+    mes_parcela_selecionado = st.selectbox("Ver parcelas do mês", meses_parcelas)
+
+    df_parcelas_mes = df_parcelas[df_parcelas["Mês"] == mes_parcela_selecionado]
+
+    st.metric(
+        f"Total de parcelas em {mes_parcela_selecionado}",
+        f"R$ {df_parcelas_mes['Valor da parcela'].sum():,.2f}"
+    )
+
+    st.dataframe(df_parcelas_mes, use_container_width=True)
 
         st.divider()
         st.subheader("👷 Resumo do Pedreiro")
