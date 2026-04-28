@@ -269,7 +269,7 @@ else:
     st.divider()
     st.subheader("👷 Resumo do Pedreiro")
 
-        if df_contratos.empty:
+       if df_contratos.empty:
             st.info("Nenhum contrato de pedreiro cadastrado ainda.")
         else:
             if df_pagamentos.empty:
