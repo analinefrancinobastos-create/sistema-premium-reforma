@@ -250,7 +250,7 @@ elif menu == "Dashboard":
 
         st.divider()
 
-      st.subheader("👷 Resumo do Pedreiro")
+    st.subheader("👷 Resumo do Pedreiro")
 
 if df_contratos.empty:
     st.info("Nenhum contrato de pedreiro cadastrado ainda.")
