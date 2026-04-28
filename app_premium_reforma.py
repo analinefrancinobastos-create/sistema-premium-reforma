@@ -508,7 +508,7 @@ else:
                 )
         except:
             st.warning("Arquivo não encontrado.")
-elif menu == "Todos os gastos":
+ elif menu == "Todos os gastos":
     st.header("📄 Todos os gastos cadastrados")
 
     df = pd.read_sql_query("SELECT * FROM gastos ORDER BY data DESC", conexao)
