@@ -312,7 +312,7 @@ elif menu == "Dashboard":
         p1.metric("Valor contratado", f"R$ {valor_contratado:,.2f}")
         p2.metric("Pago ao pedreiro", f"R$ {total_pago_pedreiro:,.2f}")
         p3.metric("Saldo restante", f"R$ {saldo_pedreiro:,.2f}")
-        
+
 elif menu == "Controle do pedreiro":
     st.header("👷 Controle do Pedreiro")
 
@@ -489,9 +489,25 @@ elif menu == "Comprovantes":
     df_comprovantes = pd.read_sql_query("SELECT * FROM comprovantes ORDER BY data DESC", conexao)
 
     if df_comprovantes.empty:
-        st.info("Nenhum comprovante cadastrado ainda.")
-    else:
-        st.dataframe(df_comprovantes, use_container_width=True)
+    st.info("Nenhum comprovante cadastrado ainda.")
+else:
+    for _, row in df_comprovantes.iterrows():
+        st.markdown("---")
+        st.write(f"📅 Data: {row['data']}")
+        st.write(f"📝 Descrição: {row['descricao']}")
+        st.write(f"📂 Categoria: {row['categoria']}")
+        st.write(f"📌 Observação: {row['observacao']}")
+
+        try:
+            with open(row["arquivo"], "rb") as file:
+                st.download_button(
+                    label="📄 Baixar comprovante",
+                    data=file,
+                    file_name=row["arquivo"].split("/")[-1],
+                    mime="application/octet-stream"
+                )
+        except:
+            st.warning("Arquivo não encontrado.")
 
 elif menu == "Todos os gastos":
     st.header("📄 Todos os gastos cadastrados")
