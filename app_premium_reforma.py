@@ -266,8 +266,7 @@ else:
 
     st.dataframe(df_parcelas_mes, use_container_width=True)
 
-        st.divider()
-        st.subheader("👷 Resumo do Pedreiro")
+              st.subheader("👷 Resumo do Pedreiro")
 
         if df_contratos.empty:
             st.info("Nenhum contrato de pedreiro cadastrado ainda.")
