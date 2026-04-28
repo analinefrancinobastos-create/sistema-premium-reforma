@@ -269,21 +269,21 @@ else:
     st.divider()
     st.subheader("👷 Resumo do Pedreiro")
 
-       if df_contratos.empty:
-            st.info("Nenhum contrato de pedreiro cadastrado ainda.")
+    if df_contratos.empty:
+        st.info("Nenhum contrato de pedreiro cadastrado ainda.")
+    else:
+        if df_pagamentos.empty:
+            total_pago_pedreiro = 0
         else:
-            if df_pagamentos.empty:
-                total_pago_pedreiro = 0
-            else:
-                total_pago_pedreiro = df_pagamentos["valor_pago"].sum()
+            total_pago_pedreiro = df_pagamentos["valor_pago"].sum()
 
-            valor_contratado = df_contratos["valor_contratado"].sum()
-            saldo_pedreiro = valor_contratado - total_pago_pedreiro
+        valor_contratado = df_contratos["valor_contratado"].sum()
+        saldo_pedreiro = valor_contratado - total_pago_pedreiro
 
-            p1, p2, p3 = st.columns(3)
-            p1.metric("Valor contratado", f"R$ {valor_contratado:,.2f}")
-            p2.metric("Pago ao pedreiro", f"R$ {total_pago_pedreiro:,.2f}")
-            p3.metric("Saldo restante", f"R$ {saldo_pedreiro:,.2f}")
+         p1, p2, p3 = st.columns(3)
+         p1.metric("Valor contratado", f"R$ {valor_contratado:,.2f}")
+         p2.metric("Pago ao pedreiro", f"R$ {total_pago_pedreiro:,.2f}")
+         p3.metric("Saldo restante", f"R$ {saldo_pedreiro:,.2f}")
     resumo_pedreiro = df_contratos.copy()
 
     if not df_pagamentos.empty:
