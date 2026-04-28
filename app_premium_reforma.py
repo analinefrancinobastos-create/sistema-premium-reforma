@@ -124,6 +124,39 @@ if menu == "Cadastrar gasto":
     valor = st.number_input("Valor R$", min_value=0.0, step=10.0)
     forma_pagamento = st.selectbox("Forma de pagamento", formas_pagamento)
     status = st.selectbox("Status", status_pagamento)
+
+    parcelado = "Não"
+    quantidade_parcelas = 1
+    valor_parcela = valor
+
+    if forma_pagamento == "Cartão de crédito":
+        parcelado = st.selectbox("Compra parcelada?", ["Não", "Sim"])
+
+        if parcelado == "Sim":
+            quantidade_parcelas = st.number_input(
+                "Quantidade de parcelas",
+                min_value=1,
+                max_value=36,
+                step=1
+            )
+
+            valor_parcela = valor / quantidade_parcelas if quantidade_parcelas > 0 else 0
+
+            st.info(f"Valor de cada parcela: R$ {valor_parcela:,.2f}")
+
+            st.subheader("📅 Meses das parcelas")
+
+            meses = []
+            for i in range(int(quantidade_parcelas)):
+                mes_parcela = pd.to_datetime(data_gasto) + pd.DateOffset(months=i)
+                meses.append({
+                    "Parcela": f"{i + 1}/{int(quantidade_parcelas)}",
+                    "Mês": mes_parcela.strftime("%m/%Y"),
+                    "Valor": valor_parcela
+                })
+
+            st.dataframe(pd.DataFrame(meses), use_container_width=True)
+
     observacao = st.text_area("Observação")
 
     if st.button("Salvar gasto"):
@@ -133,7 +166,7 @@ if menu == "Cadastrar gasto":
         VALUES (?, ?, ?, ?, ?, ?, ?)
         """, (
             str(data_gasto),
-            descricao,
+            f"{descricao} | Parcelado: {parcelado} | Parcelas: {quantidade_parcelas}x | Valor parcela: R$ {valor_parcela:.2f}",
             categoria,
             valor,
             forma_pagamento,
