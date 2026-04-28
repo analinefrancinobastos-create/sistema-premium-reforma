@@ -2,12 +2,14 @@ import streamlit as st
 import sqlite3
 import pandas as pd
 from datetime import date
+import os
 
 st.set_page_config(
     page_title="Sistema Premium de Reforma",
     page_icon="🏠",
     layout="wide"
 )
+
 # LOGIN SIMPLES
 USUARIO_CORRETO = "admin"
 SENHA_CORRETA = "djY/4Vh3@-67"
@@ -46,17 +48,6 @@ CREATE TABLE IF NOT EXISTS gastos (
     observacao TEXT
 )
 """)
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS pedreiros (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nome TEXT,
-    servico TEXT,
-    valor_combinado REAL,
-    valor_pago REAL,
-    data_pagamento TEXT,
-    observacao TEXT
-)
-""")
 
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS comprovantes (
@@ -89,6 +80,7 @@ CREATE TABLE IF NOT EXISTS pagamentos_pedreiro (
     observacao TEXT
 )
 """)
+
 conexao.commit()
 
 st.title("🏠 Sistema Premium de Controle de Reforma")
@@ -97,13 +89,14 @@ st.subheader("Dashboard Financeiro da Obra")
 menu = st.sidebar.radio(
     "Menu",
     [
-    "Dashboard",
-    "Cadastrar gasto",
-    "Controle do pedreiro",
-    "Comprovantes",
-    "Todos os gastos"
-]
+        "Dashboard",
+        "Cadastrar gasto",
+        "Controle do pedreiro",
+        "Comprovantes",
+        "Todos os gastos"
+    ]
 )
+
 if st.sidebar.button("🚪 Sair do sistema"):
     st.session_state.logado = False
     st.rerun()
@@ -161,9 +154,7 @@ if menu == "Cadastrar gasto":
             )
 
             valor_parcela = valor / quantidade_parcelas if quantidade_parcelas > 0 else 0
-
             st.info(f"Valor de cada parcela: R$ {valor_parcela:,.2f}")
-
             st.subheader("📅 Meses das parcelas")
 
             meses = []
@@ -180,22 +171,25 @@ if menu == "Cadastrar gasto":
     observacao = st.text_area("Observação")
 
     if st.button("Salvar gasto"):
-        cursor.execute("""
-        INSERT INTO gastos
-        (data, descricao, categoria, valor, forma_pagamento, status, observacao)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (
-            str(data_gasto),
-            f"{descricao} | Parcelado: {parcelado} | Parcelas: {quantidade_parcelas}x | Valor parcela: R$ {valor_parcela:.2f}",
-            categoria,
-            valor,
-            forma_pagamento,
-            status,
-            observacao
-        ))
+        if descricao == "" or valor <= 0:
+            st.warning("Preencha a descrição e o valor do gasto.")
+        else:
+            cursor.execute("""
+            INSERT INTO gastos
+            (data, descricao, categoria, valor, forma_pagamento, status, observacao)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (
+                str(data_gasto),
+                f"{descricao} | Parcelado: {parcelado} | Parcelas: {quantidade_parcelas}x | Valor parcela: R$ {valor_parcela:.2f}",
+                categoria,
+                valor,
+                forma_pagamento,
+                status,
+                observacao
+            ))
 
-        conexao.commit()
-        st.success("Gasto salvo com sucesso!")
+            conexao.commit()
+            st.success("Gasto salvo com sucesso!")
 
 elif menu == "Dashboard":
     st.header("📊 Dashboard Financeiro")
@@ -208,6 +202,7 @@ elif menu == "Dashboard":
         st.info("Nenhum gasto cadastrado ainda.")
     else:
         df["data"] = pd.to_datetime(df["data"])
+
         meses_disponiveis = sorted(df["data"].dt.strftime("%m/%Y").unique())
         mes_selecionado = st.selectbox("Selecione o mês para análise", meses_disponiveis)
 
@@ -223,48 +218,47 @@ elif menu == "Dashboard":
         col3.metric("⚠️ Total pendente", f"R$ {total_pendente:,.2f}")
 
         st.divider()
-
         st.subheader("💳 Parcelas por mês")
 
-parcelas = df[df["descricao"].str.contains("Parcelado: Sim", na=False)].copy()
+        parcelas = df[df["descricao"].str.contains("Parcelado: Sim", na=False)].copy()
 
-if parcelas.empty:
-    st.info("Nenhuma compra parcelada cadastrada.")
-else:
-    parcelas["valor_parcela"] = parcelas["descricao"].str.extract(
-        r"Valor parcela: R\$ ([0-9.]+)"
-    )[0].astype(float)
+        if parcelas.empty:
+            st.info("Nenhuma compra parcelada cadastrada.")
+        else:
+            parcelas["valor_parcela"] = parcelas["descricao"].str.extract(
+                r"Valor parcela: R\$ ([0-9.]+)"
+            )[0].astype(float)
 
-    parcelas["qtd_parcelas"] = parcelas["descricao"].str.extract(
-        r"Parcelas: ([0-9]+)x"
-    )[0].astype(int)
+            parcelas["qtd_parcelas"] = parcelas["descricao"].str.extract(
+                r"Parcelas: ([0-9]+)x"
+            )[0].astype(int)
 
-    lista_parcelas = []
+            lista_parcelas = []
 
-    for _, row in parcelas.iterrows():
-        for i in range(row["qtd_parcelas"]):
-            mes_parcela = row["data"] + pd.DateOffset(months=i)
-            lista_parcelas.append({
-                "Descrição": row["descricao"].split("|")[0],
-                "Categoria": row["categoria"],
-                "Parcela": f"{i + 1}/{row['qtd_parcelas']}",
-                "Mês": mes_parcela.strftime("%m/%Y"),
-                "Valor da parcela": row["valor_parcela"]
-            })
+            for _, row in parcelas.iterrows():
+                for i in range(int(row["qtd_parcelas"])):
+                    mes_parcela = row["data"] + pd.DateOffset(months=i)
+                    lista_parcelas.append({
+                        "Descrição": row["descricao"].split("|")[0],
+                        "Categoria": row["categoria"],
+                        "Parcela": f"{i + 1}/{int(row['qtd_parcelas'])}",
+                        "Mês": mes_parcela.strftime("%m/%Y"),
+                        "Valor da parcela": row["valor_parcela"]
+                    })
 
-    df_parcelas = pd.DataFrame(lista_parcelas)
+            df_parcelas = pd.DataFrame(lista_parcelas)
 
-    meses_parcelas = sorted(df_parcelas["Mês"].unique())
-    mes_parcela_selecionado = st.selectbox("Ver parcelas do mês", meses_parcelas)
+            meses_parcelas = sorted(df_parcelas["Mês"].unique())
+            mes_parcela_selecionado = st.selectbox("Ver parcelas do mês", meses_parcelas)
 
-    df_parcelas_mes = df_parcelas[df_parcelas["Mês"] == mes_parcela_selecionado]
+            df_parcelas_mes = df_parcelas[df_parcelas["Mês"] == mes_parcela_selecionado]
 
-    st.metric(
-        f"Total de parcelas em {mes_parcela_selecionado}",
-        f"R$ {df_parcelas_mes['Valor da parcela'].sum():,.2f}"
-    )
+            st.metric(
+                f"Total de parcelas em {mes_parcela_selecionado}",
+                f"R$ {df_parcelas_mes['Valor da parcela'].sum():,.2f}"
+            )
 
-    st.dataframe(df_parcelas_mes, use_container_width=True)
+            st.dataframe(df_parcelas_mes, use_container_width=True)
 
     st.divider()
     st.subheader("👷 Resumo do Pedreiro")
@@ -280,33 +274,34 @@ else:
         valor_contratado = df_contratos["valor_contratado"].sum()
         saldo_pedreiro = valor_contratado - total_pago_pedreiro
 
-         p1, p2, p3 = st.columns(3)
-         
-         p1.metric("Valor contratado", f"R$ {valor_contratado:,.2f}")
-         p2.metric("Pago ao pedreiro", f"R$ {total_pago_pedreiro:,.2f}")
-         p3.metric("Saldo restante", f"R$ {saldo_pedreiro:,.2f}")
-    resumo_pedreiro = df_contratos.copy()
+        p1, p2, p3 = st.columns(3)
+        p1.metric("Valor contratado", f"R$ {valor_contratado:,.2f}")
+        p2.metric("Pago ao pedreiro", f"R$ {total_pago_pedreiro:,.2f}")
+        p3.metric("Saldo restante", f"R$ {saldo_pedreiro:,.2f}")
 
-    if not df_pagamentos.empty:
-        total_por_contrato = df_pagamentos.groupby("contrato_id")["valor_pago"].sum().reset_index()
-        resumo_pedreiro = resumo_pedreiro.merge(
-            total_por_contrato,
-            left_on="id",
-            right_on="contrato_id",
-            how="left"
+        resumo_pedreiro = df_contratos.copy()
+
+        if not df_pagamentos.empty:
+            total_por_contrato = df_pagamentos.groupby("contrato_id")["valor_pago"].sum().reset_index()
+            resumo_pedreiro = resumo_pedreiro.merge(
+                total_por_contrato,
+                left_on="id",
+                right_on="contrato_id",
+                how="left"
+            )
+            resumo_pedreiro["valor_pago"] = resumo_pedreiro["valor_pago"].fillna(0)
+        else:
+            resumo_pedreiro["valor_pago"] = 0
+
+        resumo_pedreiro["saldo_restante"] = resumo_pedreiro["valor_contratado"] - resumo_pedreiro["valor_pago"]
+
+        st.dataframe(
+            resumo_pedreiro[["nome", "servico", "valor_contratado", "valor_pago", "saldo_restante"]],
+            use_container_width=True
         )
-        resumo_pedreiro["valor_pago"] = resumo_pedreiro["valor_pago"].fillna(0)
-    else:
-        resumo_pedreiro["valor_pago"] = 0
-
-    resumo_pedreiro["saldo_restante"] = resumo_pedreiro["valor_contratado"] - resumo_pedreiro["valor_pago"]
-
-    st.dataframe(
-        resumo_pedreiro[["nome", "servico", "valor_contratado", "valor_pago", "saldo_restante"]],
-        use_container_width=True
-    )
 elif menu == "Controle do pedreiro":
     st.header("👷 Controle do Pedreiro")
+
     aba1, aba2, aba3 = st.tabs([
         "📌 Cadastrar contrato",
         "💰 Registrar pagamento",
@@ -367,7 +362,7 @@ elif menu == "Controle do pedreiro":
             data_pagamento = st.date_input("Data do pagamento", value=date.today())
             forma_pagamento = st.selectbox(
                 "Forma de pagamento",
-                ["Pix", "Dinheiro", "Cartão de crédito", "Cartão de débito", "Transferência", "Boleto"]
+                formas_pagamento
             )
             observacao_pagamento = st.text_area("Observação do pagamento")
 
@@ -434,7 +429,8 @@ elif menu == "Controle do pedreiro":
                 st.dataframe(
                     historico[["nome", "servico", "data_pagamento", "valor_pago", "forma_pagamento", "observacao"]],
                     use_container_width=True
-                )     
+                )
+
 elif menu == "Comprovantes":
     st.header("📎 Upload de Comprovantes e Notas Fiscais")
 
@@ -451,8 +447,6 @@ elif menu == "Comprovantes":
         if arquivo is None:
             st.warning("Anexe um arquivo antes de salvar.")
         else:
-            import os
-
             pasta = "comprovantes"
             os.makedirs(pasta, exist_ok=True)
 
@@ -484,15 +478,6 @@ elif menu == "Comprovantes":
         st.info("Nenhum comprovante cadastrado ainda.")
     else:
         st.dataframe(df_comprovantes, use_container_width=True)
-elif menu == "Resumo geral":
-    st.header("📋 Resumo Geral")
-
-    df = pd.read_sql_query("SELECT * FROM gastos", conexao)
-
-    if df.empty:
-        st.info("Nenhum gasto cadastrado.")
-    else:
-        st.dataframe(df, use_container_width=True)
 
 elif menu == "Todos os gastos":
     st.header("📄 Todos os gastos cadastrados")
