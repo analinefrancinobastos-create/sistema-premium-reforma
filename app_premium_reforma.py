@@ -201,7 +201,8 @@ elif menu == "Dashboard":
     st.header("📊 Dashboard Financeiro")
 
     df = pd.read_sql_query("SELECT * FROM gastos", conexao)
-    df_pedreiro = pd.read_sql_query("SELECT * FROM pedreiros", conexao)
+    df_contratos = pd.read_sql_query("SELECT * FROM contratos_pedreiro", conexao)
+    df_pagamentos = pd.read_sql_query("SELECT * FROM pagamentos_pedreiro", conexao)
 
     if df.empty:
         st.info("Nenhum gasto cadastrado ainda.")
@@ -249,39 +250,44 @@ elif menu == "Dashboard":
 
         st.divider()
 
-        st.subheader("👷 Resumo do Pedreiro")
+      st.subheader("👷 Resumo do Pedreiro")
 
-        if df_pedreiro.empty:
-            st.info("Nenhum pagamento de pedreiro cadastrado ainda.")
-        else:
-            valor_contratado = df_pedreiro["valor_combinado"].max()
-            total_pago_pedreiro = df_pedreiro["valor_pago"].sum()
-            saldo_pedreiro = valor_contratado - total_pago_pedreiro
+if df_contratos.empty:
+    st.info("Nenhum contrato de pedreiro cadastrado ainda.")
+else:
+    if df_pagamentos.empty:
+        total_pago_pedreiro = 0
+    else:
+        total_pago_pedreiro = df_pagamentos["valor_pago"].sum()
 
-            p1, p2, p3 = st.columns(3)
-            p1.metric("Valor contratado", f"R$ {valor_contratado:,.2f}")
-            p2.metric("Pago ao pedreiro", f"R$ {total_pago_pedreiro:,.2f}")
-            p3.metric("Saldo restante", f"R$ {saldo_pedreiro:,.2f}")
+    valor_contratado = df_contratos["valor_contratado"].sum()
+    saldo_pedreiro = valor_contratado - total_pago_pedreiro
 
-            st.dataframe(df_pedreiro, use_container_width=True)
+    p1, p2, p3 = st.columns(3)
+    p1.metric("Valor contratado", f"R$ {valor_contratado:,.2f}")
+    p2.metric("Pago ao pedreiro", f"R$ {total_pago_pedreiro:,.2f}")
+    p3.metric("Saldo restante", f"R$ {saldo_pedreiro:,.2f}")
 
-        st.divider()
+    resumo_pedreiro = df_contratos.copy()
 
-        st.subheader("📂 Gastos por categoria")
-        resumo_categoria = df.groupby("categoria")["valor"].sum().reset_index()
-        st.dataframe(resumo_categoria, use_container_width=True)
-        st.bar_chart(resumo_categoria.set_index("categoria"))
+    if not df_pagamentos.empty:
+        total_por_contrato = df_pagamentos.groupby("contrato_id")["valor_pago"].sum().reset_index()
+        resumo_pedreiro = resumo_pedreiro.merge(
+            total_por_contrato,
+            left_on="id",
+            right_on="contrato_id",
+            how="left"
+        )
+        resumo_pedreiro["valor_pago"] = resumo_pedreiro["valor_pago"].fillna(0)
+    else:
+        resumo_pedreiro["valor_pago"] = 0
 
-        st.subheader("💳 Gastos por forma de pagamento")
-        resumo_pagamento = df.groupby("forma_pagamento")["valor"].sum().reset_index()
-        st.dataframe(resumo_pagamento, use_container_width=True)
-        st.bar_chart(resumo_pagamento.set_index("forma_pagamento"))
+    resumo_pedreiro["saldo_restante"] = resumo_pedreiro["valor_contratado"] - resumo_pedreiro["valor_pago"]
 
-        st.subheader("📅 Gastos por mês")
-        df["mes"] = df["data"].dt.strftime("%m/%Y")
-        resumo_mes = df.groupby("mes")["valor"].sum().reset_index()
-        st.dataframe(resumo_mes, use_container_width=True)
-        st.line_chart(resumo_mes.set_index("mes"))
+    st.dataframe(
+        resumo_pedreiro[["nome", "servico", "valor_contratado", "valor_pago", "saldo_restante"]],
+        use_container_width=True
+    )
 elif menu == "Controle do pedreiro":
     st.header("👷 Controle do Pedreiro")
 
