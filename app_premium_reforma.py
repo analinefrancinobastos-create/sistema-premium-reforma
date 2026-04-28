@@ -249,25 +249,23 @@ elif menu == "Dashboard":
             )
 
         st.divider()
+        st.subheader("👷 Resumo do Pedreiro")
 
-    st.subheader("👷 Resumo do Pedreiro")
+        if df_contratos.empty:
+            st.info("Nenhum contrato de pedreiro cadastrado ainda.")
+        else:
+            if df_pagamentos.empty:
+                total_pago_pedreiro = 0
+            else:
+                total_pago_pedreiro = df_pagamentos["valor_pago"].sum()
 
-if df_contratos.empty:
-    st.info("Nenhum contrato de pedreiro cadastrado ainda.")
-else:
-    if df_pagamentos.empty:
-        total_pago_pedreiro = 0
-    else:
-        total_pago_pedreiro = df_pagamentos["valor_pago"].sum()
+            valor_contratado = df_contratos["valor_contratado"].sum()
+            saldo_pedreiro = valor_contratado - total_pago_pedreiro
 
-    valor_contratado = df_contratos["valor_contratado"].sum()
-    saldo_pedreiro = valor_contratado - total_pago_pedreiro
-
-    p1, p2, p3 = st.columns(3)
-    p1.metric("Valor contratado", f"R$ {valor_contratado:,.2f}")
-    p2.metric("Pago ao pedreiro", f"R$ {total_pago_pedreiro:,.2f}")
-    p3.metric("Saldo restante", f"R$ {saldo_pedreiro:,.2f}")
-
+            p1, p2, p3 = st.columns(3)
+            p1.metric("Valor contratado", f"R$ {valor_contratado:,.2f}")
+            p2.metric("Pago ao pedreiro", f"R$ {total_pago_pedreiro:,.2f}")
+            p3.metric("Saldo restante", f"R$ {saldo_pedreiro:,.2f}")
     resumo_pedreiro = df_contratos.copy()
 
     if not df_pagamentos.empty:
@@ -290,7 +288,6 @@ else:
     )
 elif menu == "Controle do pedreiro":
     st.header("👷 Controle do Pedreiro")
-
     aba1, aba2, aba3 = st.tabs([
         "📌 Cadastrar contrato",
         "💰 Registrar pagamento",
@@ -419,101 +416,6 @@ elif menu == "Controle do pedreiro":
                     historico[["nome", "servico", "data_pagamento", "valor_pago", "forma_pagamento", "observacao"]],
                     use_container_width=True
                 )     
-elif menu == "Comprovantes":
-    st.header("📎 Upload de Comprovantes e Notas Fiscais")
-
-    data_comp = st.date_input("Data do comprovante", value=date.today())
-    descricao_comp = st.text_input("Descrição do comprovante")
-    categoria_comp = st.selectbox("Categoria do comprovante", categorias)
-    arquivo = st.file_uploader(
-        "Anexar comprovante, nota fiscal ou recibo",
-        type=["pdf", "png", "jpg", "jpeg"]
-    )
-    observacao_comp = st.text_area("Observação do comprovante")
-
-    if st.button("💾 Salvar comprovante"):
-        if arquivo is None:
-            st.warning("Anexe um arquivo antes de salvar.")
-        else:
-            import os
-
-            pasta = "comprovantes"
-            os.makedirs(pasta, exist_ok=True)
-
-            caminho_arquivo = os.path.join(pasta, arquivo.name)
-
-            with open(caminho_arquivo, "wb") as f:
-                f.write(arquivo.getbuffer())
-
-            cursor.execute("""
-            INSERT INTO comprovantes
-            (data, descricao, categoria, arquivo, observacao)
-            VALUES (?, ?, ?, ?, ?)
-            """, (
-                str(data_comp),
-                descricao_comp,
-                categoria_comp,
-                caminho_arquivo,
-                observacao_comp
-            ))
-
-            conexao.commit()
-            st.success("Comprovante salvo com sucesso!")
-
-    st.subheader("📁 Comprovantes salvos")
-
-    df_comprovantes = pd.read_sql_query("SELECT * FROM comprovantes ORDER BY data DESC", conexao)
-
-    if df_comprovantes.empty:
-        st.info("Nenhum comprovante cadastrado ainda.")
-    else:
-        st.dataframe(df_comprovantes, use_container_width=True)        
-elif menu == "Controle do pedreiro":
-    st.header("👷 Controle do Pedreiro por Parcelas")
-
-    nome = st.text_input("Nome do pedreiro")
-    servico = st.text_input("Serviço contratado")
-    valor_combinado = st.number_input("Valor combinado R$", min_value=0.0, step=100.0)
-    valor_pago = st.number_input("Valor pago nesta parcela R$", min_value=0.0, step=100.0)
-    data_pagamento = st.date_input("Data do pagamento", value=date.today())
-    observacao = st.text_area("Observação do pagamento")
-
-    if st.button("💾 Salvar pagamento do pedreiro"):
-        cursor.execute("""
-        INSERT INTO pedreiros
-        (nome, servico, valor_combinado, valor_pago, data_pagamento, observacao)
-        VALUES (?, ?, ?, ?, ?, ?)
-        """, (
-            nome,
-            servico,
-            valor_combinado,
-            valor_pago,
-            str(data_pagamento),
-            observacao
-        ))
-
-        conexao.commit()
-        st.success("Pagamento do pedreiro salvo com sucesso!")
-
-    st.subheader("📋 Histórico do pedreiro")
-
-    df_pedreiro = pd.read_sql_query("SELECT * FROM pedreiros", conexao)
-
-    if df_pedreiro.empty:
-        st.info("Nenhum pagamento cadastrado ainda.")
-    else:
-        total_combinado = df_pedreiro["valor_combinado"].max()
-        total_pago = df_pedreiro["valor_pago"].sum()
-        saldo = total_combinado - total_pago
-
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Valor combinado", f"R$ {total_combinado:,.2f}")
-        col2.metric("Total pago", f"R$ {total_pago:,.2f}")
-        col3.metric("Saldo restante", f"R$ {saldo:,.2f}")
-
-        st.dataframe(df_pedreiro, use_container_width=True)
-
-
 elif menu == "Comprovantes":
     st.header("📎 Upload de Comprovantes e Notas Fiscais")
 
