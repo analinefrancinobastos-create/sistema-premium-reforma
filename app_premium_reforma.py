@@ -10,7 +10,7 @@ st.set_page_config(
 )
 # LOGIN SIMPLES
 USUARIO_CORRETO = "admin"
-SENHA_CORRETA = "1234"
+SENHA_CORRETA = "djY/4Vh3@-67"
 
 if "logado" not in st.session_state:
     st.session_state.logado = False
