@@ -115,7 +115,7 @@ status_pagamento = [
     "Pendente"
 ]
 
-if menu == "Cadastrar gasto":
+if menu == "Cadastrar gastos":
     st.header("➕ Novo gasto")
 
     data_gasto = st.date_input("Data", value=date.today())
@@ -170,49 +170,61 @@ elif menu == "Dashboard":
 elif menu == "Controle do pedreiro":
     st.header("👷 Controle do Pedreiro por Parcelas")
 
+    st.subheader("📌 Dados do contrato")
+
     nome = st.text_input("Nome do pedreiro")
     servico = st.text_input("Serviço contratado")
-    valor_combinado = st.number_input("Valor combinado R$", min_value=0.0, step=100.0)
+    valor_combinado = st.number_input("Valor total contratado R$", min_value=0.0, step=100.0)
+
+    st.subheader("💰 Registrar pagamento")
+
     valor_pago = st.number_input("Valor pago nesta parcela R$", min_value=0.0, step=100.0)
     data_pagamento = st.date_input("Data do pagamento", value=date.today())
+    forma_pagamento = st.selectbox(
+        "Forma de pagamento",
+        ["Pix", "Dinheiro", "Cartão de crédito", "Cartão de débito", "Transferência", "Boleto"]
+    )
     observacao = st.text_area("Observação do pagamento")
 
-    if st.button("💾 Salvar pagamento do pedreiro"):
-        cursor.execute("""
-        INSERT INTO pedreiros
-        (nome, servico, valor_combinado, valor_pago, data_pagamento, observacao)
-        VALUES (?, ?, ?, ?, ?, ?)
-        """, (
-            nome,
-            servico,
-            valor_combinado,
-            valor_pago,
-            str(data_pagamento),
-            observacao
-        ))
+    if st.button("💾 Salvar pagamento"):
+        if nome == "" or servico == "" or valor_combinado <= 0 or valor_pago <= 0:
+            st.warning("Preencha nome, serviço, valor contratado e valor pago.")
+        else:
+            cursor.execute("""
+            INSERT INTO pedreiros
+            (nome, servico, valor_combinado, valor_pago, data_pagamento, observacao)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """, (
+                nome,
+                servico,
+                valor_combinado,
+                valor_pago,
+                str(data_pagamento),
+                f"{forma_pagamento} - {observacao}"
+            ))
 
-        conexao.commit()
-        st.success("Pagamento do pedreiro salvo com sucesso!")
+            conexao.commit()
+            st.success("Pagamento registrado com sucesso!")
 
-    st.subheader("📋 Histórico do pedreiro")
+    st.subheader("📊 Resumo do contrato")
 
     df_pedreiro = pd.read_sql_query("SELECT * FROM pedreiros", conexao)
 
     if df_pedreiro.empty:
         st.info("Nenhum pagamento cadastrado ainda.")
     else:
-        total_combinado = df_pedreiro["valor_combinado"].max()
-        total_pago = df_pedreiro["valor_pago"].sum()
-        saldo = total_combinado - total_pago
+        contratos = df_pedreiro.groupby(["nome", "servico"]).agg(
+            valor_contratado=("valor_combinado", "max"),
+            total_pago=("valor_pago", "sum")
+        ).reset_index()
 
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Valor combinado", f"R$ {total_combinado:,.2f}")
-        col2.metric("Total pago", f"R$ {total_pago:,.2f}")
-        col3.metric("Saldo restante", f"R$ {saldo:,.2f}")
+        contratos["saldo_restante"] = contratos["valor_contratado"] - contratos["total_pago"]
 
+        st.dataframe(contratos, use_container_width=True)
+
+        st.subheader("📋 Histórico de pagamentos")
         st.dataframe(df_pedreiro, use_container_width=True)
-
-
+        
 elif menu == "Comprovantes":
     st.header("📎 Upload de Comprovantes e Notas Fiscais")
 
