@@ -115,7 +115,7 @@ status_pagamento = [
     "Pendente"
 ]
 
-if menu == "Cadastrar gastos":
+if menu == "Cadastrar gasto":
     st.header("➕ Novo gasto")
 
     data_gasto = st.date_input("Data", value=date.today())
