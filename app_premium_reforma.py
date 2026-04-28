@@ -1,6 +1,7 @@
 import streamlit as st
 import sqlite3
 import pandas as pd
+import base64
 from datetime import date
 import os
 
@@ -506,23 +507,32 @@ elif menu == "Comprovantes":
             col1, col2 = st.columns(2)
 
             with col1:
-                st.markdown(
-                    f"""
-                    <a href="{arquivo_path}" target="_blank">
-                        <button style="
-                            background-color:#262730;
-                            color:white;
-                            border:1px solid #555;
-                            padding:10px 20px;
-                            border-radius:8px;
-                            cursor:pointer;
-                        ">
-                            📄 Visualizar comprovante
-                        </button>
-                    </a>
-                    """,
-                    unsafe_allow_html=True
-                )
+                if st.button(f"👁️ Visualizar comprovante {row['id']}"):
+                    try:
+                        arquivo_path = row["arquivo"]
+
+                        if arquivo_path.lower().endswith((".png", ".jpg", ".jpeg")):
+                            st.image(arquivo_path, use_container_width=True)
+
+                        elif arquivo_path.lower().endswith(".pdf"):
+                            with open(arquivo_path, "rb") as f:
+                                base64_pdf = base64.b64encode(f.read()).decode("utf-8")
+
+                            pdf_display = f"""
+                            <iframe
+                                src="data:application/pdf;base64,{base64_pdf}"
+                                width="100%"
+                                height="800px"
+                                type="application/pdf">
+                            </iframe>
+                            """
+
+                            st.markdown(pdf_display, unsafe_allow_html=True)
+
+                        else:
+                            st.warning("Formato não suportado para visualização.")
+                    except:
+                        st.warning("Não foi possível visualizar o arquivo.")
 
             with col2:
                 try:
