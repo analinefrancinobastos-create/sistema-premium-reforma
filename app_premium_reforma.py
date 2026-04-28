@@ -486,36 +486,44 @@ elif menu == "Comprovantes":
 
     st.subheader("📁 Comprovantes salvos")
 
-    df_comprovantes = pd.read_sql_query("SELECT * FROM comprovantes ORDER BY data DESC", conexao)
+    df_comprovantes = pd.read_sql_query(
+        "SELECT * FROM comprovantes ORDER BY data DESC",
+        conexao
+    )
 
-if df_comprovantes.empty:
-    st.info("Nenhum comprovante cadastrado ainda.")
-else:
-    for _, row in df_comprovantes.iterrows():
-        st.markdown("---")
-        st.write(f"📅 Data: {row['data']}")
-        st.write(f"📝 Descrição: {row['descricao']}")
-        st.write(f"📂 Categoria: {row['categoria']}")
-        st.write(f"📌 Observação: {row['observacao']}")
+    if df_comprovantes.empty:
+        st.info("Nenhum comprovante cadastrado ainda.")
+    else:
+        for _, row in df_comprovantes.iterrows():
+            st.markdown("---")
+            st.write(f"📅 Data: {row['data']}")
+            st.write(f"📝 Descrição: {row['descricao']}")
+            st.write(f"📂 Categoria: {row['categoria']}")
+            st.write(f"📌 Observação: {row['observacao']}")
 
-        try:
-            with open(row["arquivo"], "rb") as file:
-                st.download_button(
-                    label="📄 Baixar comprovante",
-                    data=file,
-                    file_name=row["arquivo"].split("/")[-1],
-                    mime="application/octet-stream"
-                )
-        except:
-            st.warning("Arquivo não encontrado.")
+            try:
+                with open(row["arquivo"], "rb") as file:
+                    st.download_button(
+                        label="📄 Baixar comprovante",
+                        data=file,
+                        file_name=row["arquivo"].split("/")[-1],
+                        mime="application/octet-stream"
+                    )
+            except:
+                st.warning("Arquivo não encontrado.")
+
+
 elif menu == "Todos os gastos":
     st.header("📄 Todos os gastos cadastrados")
 
-    df = pd.read_sql_query("SELECT * FROM gastos ORDER BY data DESC", conexao)
+    df = pd.read_sql_query(
+        "SELECT * FROM gastos ORDER BY data DESC",
+        conexao
+    )
 
-if df.empty:
+    if df.empty:
         st.info("Nenhum gasto encontrado.")
-else:
+    else:
         st.dataframe(df, use_container_width=True)
 
 conexao.close()
